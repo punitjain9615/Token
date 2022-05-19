@@ -1,33 +1,38 @@
-pragma solidity ^0.4.17;
+pragma solidity ^0.8.7;
+// SPDX-License-Identifier: MIT
 
-contract ERC20 {
-    function totalSupply() public constant returns (uint);
-    function balanceOf(address tokenOwner) public constant returns (uint balance);
-    function allowance(address tokenOwner, address spender) public constant returns (uint remaining);
-    function transfer(address to, uint tokens) public returns (bool success);
-    function approve(address spender, uint tokens) public returns (bool success);
-    function transferFrom(address from, address to, uint tokens) public returns (bool success);
-    event Transfer(address indexed from, address indexed to, uint tokens);
-    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
-}
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract contractB {
-  address tracker_0x_address = 0xd26114cd6EE289AccF82350c8d8487fedB8A0C07; // ContractA Address
-  mapping ( address => uint256 ) public balances;
-  
-  function deposit(uint tokens) public {
-
-    // add the deposited tokens into existing balance 
-    balances[msg.sender]+= tokens;
-
-    // transfer the tokens from the sender to this contract
-    ERC20(tracker_0x_address).transferFrom(msg.sender, address(this), tokens);
-  }
-  
-  function returnTokens() public {
-    uint256 amount = balances[msg.sender];
-    balances[msg.sender] = 0;
-    ERC20(tracker_0x_address).transfer(msg.sender, amount);
-  }
-
+contract transferTokens  {
+    address public owner;
+    uint256 public balance;
+    
+    event TransferReceived(address _from, uint _amount);
+    event TransferSent(address _from, address _destAddr, uint _amount);
+    
+    constructor() {
+        owner = msg.sender;
+    }
+    
+    receive() payable external {
+        balance += msg.value;
+        emit TransferReceived(msg.sender, msg.value);
+    }    
+    
+    function withdraw(uint amount, address payable destAddr) public {
+        require(msg.sender == owner, "Only owner can withdraw funds"); 
+        require(amount <= balance, "Insufficient funds");
+        
+        destAddr.transfer(amount);
+        balance -= amount;
+        emit TransferSent(msg.sender, destAddr, amount);
+    }
+    
+    function transferERC20(IERC20 token, address to, uint256 amount) public {
+        require(msg.sender == owner, "Only owner can withdraw funds"); 
+        uint256 erc20balance = token.balanceOf(address(this));
+        require(amount <= erc20balance, "balance is low");
+        token.transfer(to, amount);
+        emit TransferSent(msg.sender, to, amount);
+    }    
 }
